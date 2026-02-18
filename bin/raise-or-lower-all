@@ -1,0 +1,306 @@
+#!/bin/bash
+# vim:tw=0:ts=2:sw=2:et:norl:ft=bash
+# Author: Landon Bouma <https://tallybark.com/>
+# Project: https://github.com/DepoXy/raise-or-lower#📈📉
+# License: MIT. Please find more in the LICENSE file.
+
+# Copyright (c) © 2026 Landon Bouma. All Rights Reserved.
+
+# SAVVY: Using #!/bin/bash for `export -f` for `xargs`,
+# for gnome-window-calls.sh (otherwise this file itself
+# is POSIX-compatible).
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+raise_all_windows() {
+  if os_is_linux; then
+    raise_all_windows_linux "$@"
+  elif os_is_macos; then
+    raise_all_windows_macos "$@"
+  fi
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+# Raise all application windows for the given desktop environment.
+# - Specify the application using its window class (wm_class),
+#   e.g., "Alacritty", "neovide", "google-chrome", "Slack", etc.
+raise_all_windows_linux() {
+  local de_name="$1"
+  local class_name="$2"
+  local window_action="${3:-raise-all}"
+
+  if [ "${de_name}" = "GNOME" ]; then
+    # CXREF:
+    # ~/.kit/sh/gnome-window-calls/lib/gnome-window-calls.sh
+    if [ "${window_action}" = "raise-all" ]; then
+      raise_all_Wayland_classed "${class_name}"
+    elif [ "${window_action}" = "lower-all" ]; then
+      lower_all_Wayland_classed "${class_name}"
+    else
+      >&2 echo "ERROR: Please specify 'raise-all' or 'lower-all', not '${window_action}'"
+    fi
+  elif [ "${de_name}" = "MATE" ]; then
+    if [ "${window_action}" = "lower-all" ]; then
+      # Not that it couldn't be, but author doesn't use X.
+      >&2 echo "ERROR: lower-all not supported for X Windows"
+
+      exit_1
+    fi
+
+    # BWARE/2026-02-17: Author has not tested X11 paths.
+    if ${RAISEALL_WITH_WMCTRL:-true}; then
+      raise_all_XWindow_wmctrl "${class_name}"
+    elif ${RAISEALL_WITH_XDOTOOL:-false}; then
+      raise_all_XWindow_xdotool "${class_name}"
+    fi
+  fi
+}
+
+# - THANX: [GAIO]: For the code and comments:
+#   https://www.google.com/search?q=wmctrl+raise+all+windows+of+a+program
+# - BWARE/2026-02-17: This fcn. is untested (author has no X Windows env).
+#
+# Function to raise all windows of a given program name (e.g., "gnome-terminal")
+raise_all_XWindow_wmctrl() {
+  local class_name="$1"
+
+  local PIDS=$(pidof "${class_name}") # Get all PIDs for the application name
+
+  if [ -n "$PIDS" ]; then
+    # Loop through all windows listed by wmctrl
+    wmctrl -lp | while read -r id a pid b; do
+      # Check if the window's PID is in the list of our program's PIDs
+      if [[ " ${PIDS[*]} " =~ " ${pid} " ]]; then
+        # Raise the window by its ID (-i) and activate it (-a)
+        wmctrl -i -a "$id"
+      fi
+    done
+  else
+    echo "No process found for $1"
+
+    return 1
+  fi
+}
+
+# - THANX: [GAIO]: For the code and comments:
+#   https://www.google.com/search?q=xdotool+raise+all+windows+of+a+program
+# - BWARE/2026-02-17: This fcn. is untested (author has no X Windows env).
+raise_all_XWindow_xdotool() {
+  local class_name="$1"
+
+  # xdotool search: Starts the search for windows.
+  # - --onlyvisible: This is an important option to filter out invisible
+  #   or "fake" windows, ensuring only actual app. windows are targeted.
+  # - --class <program_class_name>: Specifies the program to search for
+  #   by its class name (e.g., Firefox, Gnome-terminal).
+  #   - You can use xprop to find the correct class name for a running window.
+  # - windowactivate %@: This command activates the windows found by the search.
+  #   The %@ (percent-at) is a special argument in xdotool that tells it to apply
+  #   the preceding command to all window IDs currently in its internal stack,
+  #   rather than just the first one.
+  # If you only want to raise the windows to the front on their current desktop
+  # without switching to that desktop or giving them focus, you can use
+  # windowraise instead of windowactivate.
+
+  xdotool search --onlyvisible --class %@ "${class_name}" windowraise
+  # ALTLY:
+  #  xdotool search --onlyvisible --class %@ "${class_name}" windowactivate
+}
+
+# ***
+
+# COPYD/2026-02-17: From sh-humble-prompt:
+#   _humb_probe_desktop_environment
+#     https://github.com/DepoXy/sh-humble-prompt#🙇
+# - CXREF: For DepoXy users, at:
+#   ~/.kit/sh/sh-humble-prompt/lib/show-command-name-in-window-title.sh
+_humb_probe_desktop_environment() {
+  # Colon-separated list, uppercased.
+  local currdes
+  currdes="$(echo "${XDG_CURRENT_DESKTOP}" | tr '[:lower:]' '[:upper:]')"
+
+  (
+    IFS=:
+    for denv in ${currdes}; do
+      if [ "${denv}" = "GNOME" ]; then
+        echo "GNOME"
+      elif [ "${denv}" = "MATE" ]; then
+        echo "MATE"
+      else
+
+        continue
+      fi
+
+      break
+    done
+  )
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+# FIXME: FTREQ/2026-02-17: Implment macOS raise-all-app-windows.
+
+raise_all_windows_macos() {
+  >&2 echo "ERROR: NotImplementedError"
+
+  exit_1
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+os_is_linux() {
+  [ "$(uname)" = "Linux" ]
+}
+
+os_is_macos() {
+  [ "$(uname)" = "Darwin" ]
+}
+
+source_deps() {
+  local canon_bin="$1"
+
+  # Caller can pass base dir to source this script;
+  # otherwise was invoked, so we know where we are.
+  if [ -z "${canon_bin}" ]; then
+    canon_bin="$(dirname -- "$(realpath -- "$0")")"
+  fi
+
+  # Load: raise_all_Wayland_classed
+  . "${canon_bin}/../deps/gnome-window-calls/lib/gnome-window-calls.sh"
+}
+
+check_deps_raise_all() {
+  if os_is_linux; then
+    if [ "${de_name}" = "GNOME" ]; then
+      # CXREF:
+      # ~/.kit/sh/gnome-window-calls/lib/gnome-window-calls.sh
+      check_deps_gnome_extension_window_calls
+    elif [ "${de_name}" = "MATE" ]; then
+      check_deps_xwindow
+    fi
+  elif os_is_macos; then
+    check_deps_darwin
+  else
+    >&2 echo "ERROR: This script only runs on Linux or macOS"
+
+    return 1
+  fi
+}
+
+check_deps_xwindow() {
+  if ${RAISEALL_WITH_WMCTRL:-true} \
+    && ! command -v wmctrl > /dev/null \
+    ; then
+
+    >&2 echo "ERROR: Missing comand \`wmctrl\`"
+
+    return 1
+  fi
+
+  if ${RAISEALL_WITH_XDOTOOL:-false} \
+    && ! command -v xdotool > /dev/null \
+    ; then
+
+    >&2 echo "ERROR: Missing comand \`xdotool\`"
+
+    return 1
+  fi
+}
+
+check_deps_darwin() {
+
+  return 0
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+clear_traps() {
+  trap - EXIT INT
+}
+
+set_traps() {
+  trap -- trap_exit EXIT
+  trap -- trap_int INT
+}
+
+exit_0() {
+  clear_traps
+
+  exit 0
+}
+
+exit_1() {
+  clear_traps
+
+  exit 1
+}
+
+trap_exit() {
+  clear_traps
+
+  # USAGE: Alert on unexpected error path, so you can add happy path.
+  >&2 echo "ALERT: "$(basename -- "$0")" exited abnormally!"
+  >&2 echo "- Hint: Enable \`set -x\` and run again..."
+
+  exit 2
+}
+
+trap_int() {
+  clear_traps
+
+  exit 3
+}
+
+# ***
+
+main() {
+  set -e
+
+  set_traps
+
+  # ***
+
+  if [ -z "$1" ]; then
+    >&2 echo "USAGE: $0 [{window class}]"
+
+    exit_1
+  fi
+
+  # ***
+
+  source_deps
+
+  local de_name
+  de_name="$(_humb_probe_desktop_environment)"
+
+  if ! check_deps_raise_all; then
+
+    return 1
+  fi
+
+  if ! raise_all_windows "${de_name}" "$@"; then
+
+    exit_1
+  fi
+
+  # ***
+
+  clear_traps
+}
+
+# ***
+
+_rolbinra_this_file_name="raise-all"
+_rolbinra_canonical_comm="$(basename -- "$(realpath -- "$0")")"
+_rolbinra_shell_sourced() {
+  [ "${_rolbinra_canonical_comm}" != "${_rolbinra_this_file_name}" ]
+}
+
+if _rolbinra_shell_sourced; then
+  unset -f main
+  unset -v _rolbinra_this_file_name
+  unset -f _rolbinra_shell_sourc
+else
+  main "$@"
+fi

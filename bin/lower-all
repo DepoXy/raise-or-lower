@@ -6,4 +6,4 @@
 
 # Copyright (c) © 2026 Landon Bouma. All Rights Reserved.
 
-"$(dirname -- "$(realpath -- "$0")")/raise-all" "$@" "lower-all"
+"$(dirname -- "$(realpath -- "$0")")/raise-or-lower-all" "$@" "lower-all"
