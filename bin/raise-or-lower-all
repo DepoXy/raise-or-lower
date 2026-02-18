@@ -9,10 +9,23 @@
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 raise_or_lower_all_windows() {
+  local de_name="$1"
+  local window_action="$2"
+  local class_name="$3"
+  if [ "${window_action}" != "raise-all" ] && [ "${window_action}" != "lower-all" ]; then
+    >&2 echo "ERROR: Please specify 'raise-all' or 'lower-all', not '${window_action}'"
+
+    exit_1
+  fi
+
+  # ***
+
   if os_is_linux; then
-    raise_or_lower_all_windows_linux "$@"
+    raise_or_lower_all_windows_linux \
+      "${de_name}" "${window_action}" "${class_name}"
   elif os_is_macos; then
-    raise_or_lower_all_windows_macos "$@"
+    raise_or_lower_all_windows_macos \
+      "${de_name}" "${window_action}" "${class_name}"
   fi
 }
 
@@ -27,29 +40,55 @@ raise_or_lower_all_windows_linux() {
   local class_name="$3"
 
   if [ "${de_name}" = "GNOME" ]; then
-    # CXREF:
-    # ~/.kit/sh/gnome-window-calls/lib/gnome-window-calls.sh
-    if [ "${window_action}" = "raise-all" ]; then
-      raise_all_Wayland_classed "${class_name}"
-    elif [ "${window_action}" = "lower-all" ]; then
-      lower_all_Wayland_classed "${class_name}"
-    else
-      >&2 echo "ERROR: Please specify 'raise-all' or 'lower-all', not '${window_action}'"
-    fi
+    raise_or_lower_all_windows_linux_Wayland \
+      "${window_action}" "${class_name}"
   elif [ "${de_name}" = "MATE" ]; then
-    if [ "${window_action}" = "lower-all" ]; then
-      # Not that it couldn't be, but author doesn't use X.
-      >&2 echo "ERROR: lower-all not supported for X Windows"
+    raise_or_lower_all_windows_linux_X_Windows \
+      "${window_action}" "${class_name}"
+  else
+    >&2 echo "ERROR: Unsupported desktop environment: '${de_name}'"
 
-      exit_1
-    fi
+    exit_1
+  fi
+}
 
-    # BWARE/2026-02-17: Author has not tested X11 paths.
-    if ${RAISEALL_WITH_WMCTRL:-true}; then
-      raise_all_XWindow_wmctrl "${class_name}"
-    elif ${RAISEALL_WITH_XDOTOOL:-false}; then
-      raise_all_XWindow_xdotool "${class_name}"
-    fi
+# ***
+
+# CXREF: See deps/ lib for Wayland window fcns:
+# ~/.kit/sh/gnome-window-calls/lib/gnome-window-calls.sh
+raise_or_lower_all_windows_linux_Wayland() {
+  local window_action="$1"
+  local class_name="$2"
+  local keep_active="$3"
+
+  if [ "${window_action}" = "raise-all" ]; then
+    raise_all_Wayland_classed "${class_name}"
+  elif [ "${window_action}" = "lower-all" ]; then
+    lower_all_Wayland_classed "${class_name}"
+  fi
+}
+
+# ***
+
+# Generally unsupported path (supports raise-all;
+# but does not support keep_active nor lower-all,
+# because author doesn't use X, so not adding it).
+raise_or_lower_all_windows_linux_X_Windows() {
+  local window_action="$1"
+  local class_name="$2"
+
+  if [ "${window_action}" = "lower-all" ]; then
+    # Not that it couldn't be supported, but author doesn't use X.
+    >&2 echo "ERROR: 'lower-all' not supported for X Windows"
+
+    exit_1
+  fi
+
+  # BWARE/2026-02-17: Author has not tested X11 paths.
+  if ${RAISEALL_WITH_WMCTRL:-true}; then
+    raise_all_XWindow_wmctrl "${class_name}"
+  elif ${RAISEALL_WITH_XDOTOOL:-false}; then
+    raise_all_XWindow_xdotool "${class_name}"
   fi
 }
 
