@@ -12,6 +12,13 @@ raise_or_lower_all_windows() {
   local de_name="$1"
   local window_action="$2"
   local class_name="$3"
+  local keep_active="$4"
+
+  if [ -z "${keep_active}" ] && [ "${class_name}" = "true" ]; then
+    keep_active=true
+    class_name=""
+  fi
+
   if [ "${window_action}" != "raise-all" ] && [ "${window_action}" != "lower-all" ]; then
     >&2 echo "ERROR: Please specify 'raise-all' or 'lower-all', not '${window_action}'"
 
@@ -22,10 +29,10 @@ raise_or_lower_all_windows() {
 
   if os_is_linux; then
     raise_or_lower_all_windows_linux \
-      "${de_name}" "${window_action}" "${class_name}"
+      "${de_name}" "${window_action}" "${class_name}" "${keep_active}"
   elif os_is_macos; then
     raise_or_lower_all_windows_macos \
-      "${de_name}" "${window_action}" "${class_name}"
+      "${de_name}" "${window_action}" "${class_name}" "${keep_active}"
   fi
 }
 
@@ -38,10 +45,11 @@ raise_or_lower_all_windows_linux() {
   local de_name="$1"
   local window_action="$2"
   local class_name="$3"
+  local keep_active="$4"
 
   if [ "${de_name}" = "GNOME" ]; then
     raise_or_lower_all_windows_linux_Wayland \
-      "${window_action}" "${class_name}"
+      "${window_action}" "${class_name}" "${keep_active}"
   elif [ "${de_name}" = "MATE" ]; then
     raise_or_lower_all_windows_linux_X_Windows \
       "${window_action}" "${class_name}"
@@ -64,7 +72,7 @@ raise_or_lower_all_windows_linux_Wayland() {
   if [ "${window_action}" = "raise-all" ]; then
     raise_all_Wayland_classed "${class_name}"
   elif [ "${window_action}" = "lower-all" ]; then
-    lower_all_Wayland_classed "${class_name}"
+    lower_all_Wayland_classed "${class_name}" "${keep_active}"
   fi
 }
 
@@ -180,6 +188,7 @@ raise_or_lower_all_windows_macos() {
   local de_name="$1"
   local window_action="$2"
   local class_name="$3"
+  local keep_active="$4"
 
   >&2 echo "ERROR: NotImplementedError"
 
