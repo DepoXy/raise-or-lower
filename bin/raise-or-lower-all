@@ -23,8 +23,8 @@ raise_or_lower_all_windows() {
 #   e.g., "Alacritty", "neovide", "google-chrome", "Slack", etc.
 raise_or_lower_all_windows_linux() {
   local de_name="$1"
-  local class_name="$2"
-  local window_action="${3:-raise-all}"
+  local window_action="$2"
+  local class_name="$3"
 
   if [ "${de_name}" = "GNOME" ]; then
     # CXREF:
@@ -138,6 +138,10 @@ _humb_probe_desktop_environment() {
 # FIXME: FTREQ/2026-02-17: Implment macOS raise-or-lower-all-windows.
 
 raise_or_lower_all_windows_macos() {
+  local de_name="$1"
+  local window_action="$2"
+  local class_name="$3"
+
   >&2 echo "ERROR: NotImplementedError"
 
   exit_1
