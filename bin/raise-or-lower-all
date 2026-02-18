@@ -291,16 +291,16 @@ main() {
 
 # ***
 
-_rolbinra_this_file_name="raise-all"
-_rolbinra_canonical_comm="$(basename -- "$(realpath -- "$0")")"
-_rolbinra_shell_sourced() {
-  [ "${_rolbinra_canonical_comm}" != "${_rolbinra_this_file_name}" ]
+_rolbinrola_this_file_name="raise-or-lower-all"
+_rolbinrola_canonical_comm="$(basename -- "$(realpath -- "$0")")"
+_rolbinrola_shell_sourced() {
+  [ "${_rolbinrola_canonical_comm}" != "${_rolbinrola_this_file_name}" ]
 }
 
-if _rolbinra_shell_sourced; then
+if _rolbinrola_shell_sourced; then
   unset -f main
-  unset -v _rolbinra_this_file_name
-  unset -f _rolbinra_shell_sourc
+  unset -v _rolbinrola_this_file_name
+  unset -f _rolbinrola_shell_sourc
 else
   main "$@"
 fi
