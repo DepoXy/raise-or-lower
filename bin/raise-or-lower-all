@@ -6,10 +6,6 @@
 
 # Copyright (c) © 2026 Landon Bouma. All Rights Reserved.
 
-# SAVVY: Using #!/bin/bash for `export -f` for `xargs`,
-# for gnome-window-calls.sh (otherwise this file itself
-# is POSIX-compatible).
-
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 raise_or_lower_all_windows() {
