@@ -302,8 +302,9 @@ _rolbinrol_shell_sourced() {
 
 if _rolbinrol_shell_sourced; then
   unset -f main
+  unset -f _rolbinrol_shell_sourced
   unset -v _rolbinrol_this_file_name
-  unset -f _rolbinrol_shell_sourc
+  unset -v _rolbinrol_canonical_comm
 else
   main "$@"
 fi
