@@ -274,7 +274,7 @@ check_deps_darwin() {
 
 main() {
   if [ -z "$1" ]; then
-    >&2 echo "USAGE: $0 {window title}"
+    >&2 echo "USAGE: $0 <APP_ID>|<TITLE_TERM [TITLE_TERM ...]>"
 
     return 1
   fi
