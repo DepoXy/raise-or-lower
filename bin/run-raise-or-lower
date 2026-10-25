@@ -27,6 +27,8 @@ main() {
   fi
 
   # Eh, a little kludgy-feeling, but tells RoL to expect additional first arg.
+  # CXREF:
+  # ~/.kit/sh/raise-or-lower/bin/raise-or-lower
   RAISELOWER_RUN_ENABLE=true \
     "$(dirname -- "$(realpath -- "$0")")/raise-or-lower" "$@"
 }
