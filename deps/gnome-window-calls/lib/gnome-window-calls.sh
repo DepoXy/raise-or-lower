@@ -331,28 +331,71 @@ raise_window_Wayland_titled() {
 
   # ***
 
+  local jq_filter=""
+
+  if is_activate_windows_prefer_visible; then
+    jq_filter="select(.minimized == false) |"
+
+    local retcode=0
+    if retcode=$(
+      raise_window_Wayland_titled_from_details \
+        "${window_details}" "${found_wm_class}" "${jq_filter}" "$@"
+    ); then
+
+      return ${retcode}
+    fi
+  fi
+
+  jq_filter=""
+  retcode=$(
+    raise_window_Wayland_titled_from_details \
+      "${window_details}" "${found_wm_class}" "${jq_filter}" "$@"
+  ) || true
+
+  return ${retcode}
+}
+
+raise_window_Wayland_titled_from_details() {
+  local window_details="$1"
+  local found_wm_class="$2"
+  local jq_filter="$3"
+  shift 3
+
+  local will_try_again=true
+  if [ -z "${jq_filter}" ] || ${RAISELOWER_FRONT_ONLY:-false}; then
+    will_try_again=false
+  fi
+
   local titles_and_ids
   titles_and_ids="$(
     printf "%s" "${window_details}" \
-      | jq -r '"\(.title)\t\(.id)"' \
+      | jq -r "${jq_filter}\"\\(.title)\\t\\(.id)\"" \
         2>&1
   )"
 
-  if [ $? -ne 0 ]; then
+  if [ $? -ne 0 ] || [ -z "${titles_and_ids}" ]; then
+    if ${will_try_again}; then
+
+      return 1
+    fi
+
     >&2 echo "ERROR: Failed to identify window:"
     >&2 echo "  $ printf \"%s\" \"\${window_details}\" |"
     >&2 echo "    jq -r '\"\\(.title)\\t\\(.id)\"'"
     printf "%s" "${window_details}" \
       | 1>&2 jq -r '"\(.title)\t\(.id)"'
 
-    return 1
+    echo "1"
+
+    return 0
   fi
 
   if [ -n "${RAISELOWER_TRACE_DIR}" ]; then
-    echo "${titles_and_ids}" > "${RAISELOWER_TRACE_DIR}/05--titles_and_ids"
-  fi
+    local postfix=""
+    [ -z "${jq_filter}" ] || postfix="--filtered"
 
-  # ***
+    echo "${titles_and_ids}" > "${RAISELOWER_TRACE_DIR}/05--titles_and_ids${postfix}"
+  fi
 
   if ! (
     if ${found_wm_class}; then
@@ -361,10 +404,47 @@ raise_window_Wayland_titled() {
       activate_windows_by_pattern_match "${titles_and_ids}" "$@"
     fi
   ); then
+    if ${will_try_again}; then
+
+      return 1
+    fi
+
     >&2 echo "ALERT: No matching window(s) identified for: $@"
 
-    return 1
+    echo "1"
+
+    return 0
   fi
+
+  return 0
+}
+
+# FEATR: Prefer visible, e.g., on raise by App ID, don't unminimize
+# if any window already visible, but pick visible window instead.
+# - FEATR: Front-only, i.e., no-op if nothing visible.
+# - Note user can combine, e.g., raise-all with front-only, and
+#   it'll just bring each app window to front in succession,
+#   atop other visible windows.
+is_activate_windows_prefer_visible() {
+  local prefer_visible=false
+
+  if ! ${RAISELOWER_RAISE_ALL_WINDOWS:-false} || ${RAISELOWER_FRONT_ONLY:-false}; then
+
+    # Set either/both environ="" to disable.
+    if [ -n "${RAISELOWER_PREFER_MINIMIZED-x}" ] \
+      && [ -n "${RAISELOWER_PREFER_VISIBLE-x}" ] \
+      ; then
+
+      if ! ${RAISELOWER_PREFER_MINIMIZED-false} \
+        && ${RAISELOWER_PREFER_VISIBLE:-true} \
+        ; then
+        prefer_visible=true
+
+      fi
+    fi
+  fi
+
+  ${prefer_visible}
 }
 
 activate_windows_for_application() {
@@ -372,10 +452,13 @@ activate_windows_for_application() {
 
   local was_raised=false
 
+  local window_id=""
+
   local title_and_id=""
   while IFS= read -r title_and_id; do
-    local window_id=""
-    window_id="$(echo "${title_and_id}" | sed 's/.*\t//')"
+    # USYNC: 2 fields separated by two tabs.
+    #  window_id="$(echo "${title_and_id}" | sed 's/.*\t//')"
+    window_id="$(echo "${title_and_id}" | awk -F'\t' '{print $2}')"
 
     activate_window_by_window_id "${window_id}"
     was_raised=true
@@ -402,6 +485,7 @@ activate_windows_by_pattern_match() {
     local matching_titles_and_ids
     # Use Perl regex, or \t doesn't work (literal "${pattern}.*	"
     # works, but not "${pattern}.*"$'\t').
+    # USYNC: 2 fields separated by two tabs.
     matching_titles_and_ids="$(
       echo "${titles_and_ids}" | grep -P -e "${pattern}.*\t"
     )"
@@ -412,7 +496,10 @@ activate_windows_by_pattern_match() {
 
       local title_and_id=""
       while IFS= read -r title_and_id; do
-        window_id="$(echo "${title_and_id}" | sed 's/.*\t//')"
+        # USYNC: 2 fields separated by two tabs.
+        #  window_id="$(echo "${title_and_id}" | sed 's/.*\t//')"
+        window_id="$(echo "${title_and_id}" | awk -F'\t' '{print $2}')"
+
         if [ -n "${window_id}" ]; then
           window_ids+=("${window_id}")
 
