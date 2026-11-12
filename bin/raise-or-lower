@@ -44,6 +44,7 @@ toggle_window_focus_linux() {
   local win_before
 
   # Fetch ID for active window ID before doing anything.
+  # - SAVVY: Raise-only, as in, don't minimize if target window is topmost.
   if ! ${RAISELOWER_RAISE_ONLY:-false}; then
     win_before="$(get_focused_window_id "${de_name}")" \
       || true
@@ -53,7 +54,7 @@ toggle_window_focus_linux() {
   # using name(s) passed as args.
   if ! raise_window "${de_name}" "$@"; then
     if ${RAISELOWER_RUN_ENABLE:-false}; then
-      # OPSEC: There is none here...
+      # OPSEC: There is none here... "you pass it, we run it!"
       if eval "${runcmd}"; then
 
         return 0
